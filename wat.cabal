@@ -15,7 +15,7 @@ cabal-version:       >=1.10
 
 library
   hs-source-dirs:      src
-  exposed-modules:     Wat
+  exposed-modules:     Wat, ReaderPractice
   build-depends:       base >= 4.7 && < 5, QuickCheck, time, semigroups, checkers
   default-language:    Haskell2010
 
