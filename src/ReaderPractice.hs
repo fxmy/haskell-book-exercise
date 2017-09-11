@@ -33,6 +33,12 @@ summed = uncurry (+)
 bolt :: Integer -> Bool
 bolt = liftA2 (&&) (>3) (<8)
 
+sequA :: Integral a => a -> [Bool]
+sequA = sequenceA [(>3), (<8), even]
+
+s' :: Maybe Integer
+s' = summed <$> ((,) <$> xs <*> ys)
+
 mainRP :: IO ()
 mainRP = do
   print $ sequenceA [Just 3, Just 2, Just 1]
@@ -43,3 +49,6 @@ mainRP = do
   print $ bolt 7
   print $ fmap bolt z
   print $ sequenceA [(>3), (<8), even] 7
+  print $ and <$> sequA $ 7
+  print $ and . sequA <$> fromMaybe 0 $ s'
+  print $ bolt <$> fromMaybe 0 $ ys
