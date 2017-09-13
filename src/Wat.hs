@@ -1213,3 +1213,10 @@ module Wat where
   flipReader :: Reader a (b -> c) -> b -> Reader a c
   flipReader (Reader f) = Reader . flip f
 --flipReader (Reader f) = \b -> Reader $ flip f b
+
+
+  newtype Moi s a = Moi {runMoi :: s -> (a, s)}
+  instance Functor (Moi s) where
+    fmap :: (a -> b) -> Moi s a -> Moi s b
+    f `fmap` Moi g = Moi $ k <$> g where
+      k (a, s) = (f a, s)
