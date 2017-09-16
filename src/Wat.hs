@@ -1236,3 +1236,18 @@ module Wat where
       let
         (a, s0) = f s
      in runMoi (g a) s0
+
+  getMoi :: Moi s s
+  getMoi = Moi $ \s -> (s, s)
+
+  putMoi :: s -> Moi s ()
+  putMoi s = Moi $ const ((), s)
+
+  execMoi :: Moi s a -> s -> s
+  execMoi (Moi sa) s = snd $ sa s
+
+  evalMoi :: Moi s a -> s -> a
+  evalMoi (Moi sa) s = fst $ sa s
+
+  modifyMoi :: (s -> s) -> Moi s ()
+  modifyMoi f = Moi $ \s -> ((), f s)
