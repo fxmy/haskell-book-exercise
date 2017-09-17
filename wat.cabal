@@ -15,8 +15,8 @@ cabal-version:       >=1.10
 
 library
   hs-source-dirs:      src
-  exposed-modules:     Wat, ReaderPractice
-  build-depends:       base >= 4.7 && < 5, QuickCheck, time, semigroups, checkers, random
+  exposed-modules:     Wat, ReaderPractice, LearnParsers
+  build-depends:       base >= 4.7 && < 5, QuickCheck, time, semigroups, checkers, random, trifecta, parsers
   default-language:    Haskell2010
 
 executable wat-exe
