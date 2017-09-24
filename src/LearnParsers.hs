@@ -3,6 +3,7 @@ module LearnParsers where
 import Control.Applicative
 import Data.Ratio ((%))
 import Text.Trifecta
+import Data.Monoid ((<>))
 --import Text.Parser.Combinators
 
 stop :: Parser a
@@ -78,3 +79,62 @@ mainLP = do
   pNL "chars"
   testParse (choice
     [one >> two >> three, one >> two, one, stop])
+
+data NumberOrString = NOSS String | NOSI Integer
+  deriving (Show)
+
+instance Eq NumberOrString where
+  NOSS s == NOSS s' = s == s'
+  NOSI i == NOSI i' = i == i'
+  _ == _ = False
+instance Ord NumberOrString where
+  NOSS s `compare` NOSS s' = compare s s'
+  NOSI i `compare` NOSI i' = compare i i'
+  NOSI _ `compare` _ = LT
+  _ `compare` NOSI _ = GT
+
+type Major = Integer
+type Minor = Integer
+type Patch = Integer
+type Release = [NumberOrString]
+type Metadata = [NumberOrString]
+
+data SemVer = SemVer Major Minor Patch Release Metadata
+  deriving (Show)
+
+instance Eq SemVer where
+  SemVer ma mi pa re me == SemVer ma' mi' pa' re' me' =
+    ma == ma' && mi == mi' && pa == pa' && re == re' && me == me'
+instance Ord SemVer where
+  SemVer ma mi pa re _ `compare` SemVer ma' mi' pa' re' _ =
+    let c = compare ma ma' <> compare mi mi' <> compare pa pa'
+     in case c of
+          EQ -> compare re re'
+          _  -> c
+
+parseSemVer :: Parser SemVer
+parseSemVer = do
+  ma <- decimal
+  _ <- char '.'
+  mi <- decimal
+  _ <- char '.'
+  pa <- decimal
+  rel <- try pRel
+  meta <- try pMeta
+  _ <- eof
+  return $ SemVer ma mi pa rel meta
+
+pRel :: Parser [NumberOrString]
+pRel = (char '-' >> many pNoS' ) <|> return []
+
+pMeta :: Parser [NumberOrString]
+pMeta = (char '+' >> many pNoS' ) <|> return []
+
+pNoS' :: Parser NumberOrString
+pNoS' = do
+  ns <- pNoS
+  skipMany $ oneOf "."
+  return ns
+
+pNoS :: Parser NumberOrString
+pNoS = (NOSI <$> decimal) <|> (NOSS <$> some letter)
