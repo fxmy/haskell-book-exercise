@@ -1,10 +1,10 @@
 {-# LANGUAGE InstanceSigs #-}
-
 module Compose where
 
-newtype Compose f g a =
-  Compose { getCompose :: f (g a) } deriving (Eq, Show)
+import qualified Control.Arrow as CA (first)
 
+newtype Compose f g a =
+  Compose { getCompose :: f (g a) } deriving (Eq, Show) 
 instance (Functor f, Functor g) =>
   Functor (Compose f g) where
     fmap f (Compose fga) = Compose $ (fmap . fmap) f fga
@@ -65,3 +65,66 @@ data Eitheri a b = Lefti a | Righti b deriving (Show)
 instance Bifunctor Eitheri where
   bimap f g (Lefti a) = Lefti (f a)
   bimap f g (Righti b) = Righti (g b)
+
+
+newtype EitherT e m a = EitherT { runEitherT :: m (Either e a) }
+instance (Functor m) => Functor (EitherT e m) where
+  fmap f (EitherT ma) = EitherT $ (fmap.fmap) f ma
+instance (Applicative m) => Applicative (EitherT e m) where
+  pure x = EitherT $ pure $ pure x
+  EitherT f <*> EitherT a = EitherT $ (<*>) <$> f <*> a
+instance (Monad m) => Monad (EitherT e m) where
+  return = pure
+  EitherT ma >>= f = EitherT $ do
+    a <- ma
+    case a of
+      Left e -> return $ Left e
+      Right a -> runEitherT $ f a
+
+swapEitherT :: (Functor m) => EitherT e m a -> EitherT a m e
+swapEitherT (EitherT ma) = EitherT $ f <$> ma where
+  f (Left e) = Right e
+  f (Right a) = Left a
+
+eitherT :: Monad m => (a -> m c) -> (b -> m c) -> EitherT a m b -> m c
+eitherT f g (EitherT ma) = do
+  v <- ma
+  case v of
+    Left a -> ma >>= f.(\(Left a) -> a)
+    Right b -> ma >>= g.(\(Right b) -> b)
+--OR
+--ma >>= k f g where
+  --k f g (Left a) = f a
+  --k f g (Right b) = g b
+
+--PROBABLY WRONG BECAUSE WE ARE THROWING AWAY THE STRUCTURE m
+--  v <- ma
+--  case v of
+--    Left a -> f a
+--    Right b -> g b
+
+
+newtype StateT s m a = StateT { runStateT :: s -> m (a,s) }
+instance (Functor m) => Functor (StateT s m) where
+  fmap :: (a->b) -> StateT s m a -> StateT s m b
+  fmap f (StateT smas) =
+    -- ADVISED BY haskell-vim, WOW
+    StateT $ (fmap.fmap) (CA.first f) smas
+--    FOR FUNCTIONS, f <$> g == f.g
+--    StateT $ (fmap.fmap) (\(a,s) -> (f a, s)) smas
+--  fmap f (StateT smas) = StateT $ \s ->
+--    let mas = smas s in (\(a,s) -> (f a, s)) <$> mas
+instance (Monad m) => Applicative (StateT s m) where
+  pure :: a -> StateT s m a
+  pure a = StateT $ \s -> return (a,s)
+  (<*>) :: StateT s m (a->b) -> StateT s m a -> StateT s m b
+  StateT smf <*> StateT smas = StateT $ \s0 -> do
+    (f,s1) <- smf s0
+    (a,s2) <- smas s1
+    return (f a, s2)
+instance (Monad m) => Monad (StateT s m) where
+  return = pure
+  (>>=) :: StateT s m a -> (a -> StateT s m b) -> StateT s m b
+  StateT smas >>= f = StateT $ \s0 -> do
+    (a,s1) <- smas s0
+    (runStateT $ f a) s1
