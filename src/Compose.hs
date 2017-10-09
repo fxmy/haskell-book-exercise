@@ -2,6 +2,13 @@
 module Compose where
 
 import qualified Control.Arrow as CA (first)
+import Control.Monad.Trans.Except
+import Control.Monad.Trans.Maybe
+import Control.Monad.Trans.Reader
+import Control.Monad.Trans.Class
+import Control.Monad.IO.Class
+import Data.Functor.Identity
+import Control.Monad
 
 newtype Compose f g a =
   Compose { getCompose :: f (g a) } deriving (Eq, Show) 
@@ -128,3 +135,58 @@ instance (Monad m) => Monad (StateT s m) where
   StateT smas >>= f = StateT $ \s0 -> do
     (a,s1) <- smas s0
     (runStateT $ f a) s1
+
+
+embedded :: MaybeT (ExceptT String (ReaderT () IO)) Int
+embedded =
+  MaybeT $ ExceptT $ ReaderT $ return . const (Right (Just 1))
+
+instance MonadTrans (EitherT e) where
+  lift :: (Monad m) => m a -> EitherT e m a
+  lift = EitherT . fmap Right
+
+instance MonadTrans (StateT s) where
+  lift :: (Monad m) => m a -> StateT s m a
+  lift m = StateT $ \s -> (\a->(a,s)) <$> m
+
+--instance (MonadIO m) => MonadIO (MaybeT m) where
+--  liftIO :: IO a -> m a
+--  liftIO = lift . liftIO
+--
+--ALL ARE lift . liftIO
+
+
+rDec :: Num a => Reader a a
+rDec = reader $ flip (-) 1
+
+rShow :: Show a => ReaderT a Identity String
+rShow = ReaderT $ return . show
+--      ReaderT $ Identity . show
+
+rPrintAndInc :: (Num a, Show a) => ReaderT a IO a
+rPrintAndInc = ReaderT $ \r -> do
+  putStrLn $ "Hi:" ++ show r
+  return $ r + 1
+
+sPrintIncAccum :: (Num a, Show a) => StateT a IO String
+sPrintIncAccum = StateT $ \s -> do
+  putStrLn $ "Hi:" ++ show s
+  return (show s, s+1)
+
+isValid :: String -> Bool
+isValid v = '!' `elem` v
+
+maybeExcite :: MaybeT IO String
+maybeExcite = MaybeT $ do
+  v <- getLine
+  if isValid v
+     then return $ Just v
+     else return Nothing
+
+doExcite :: IO ()
+doExcite = do
+  putStrLn "say something excite!"
+  excite <- runMaybeT maybeExcite
+  case excite of
+    Nothing -> putStrLn "MOAR EXCITE"
+    Just e -> putStrLn ("Good, was very excite: " ++ e)
